@@ -17,12 +17,9 @@ logger.add(logname, format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}",ro
 file_to_write = f"{basedir}/raw_stock_data.csv"
 stock_symbol_list = f"{basedir}/MyStocksSymbols.txt"
 
-sgbUrlDict = {"SGBAUG29":["SGB Scheme 
-21-22","https://www.moneycontrol.com/india/stockpricequote/finance-investment/sovereigngoldbonds250aug2029sr-v2021-22/SGB40"],
-    "SGBJUL25":["SGB Scheme 
-17-18","https://www.moneycontrol.com/india/stockpricequote/financeinvestments/sovereigngoldbonds250jul2025srii201718/SGB08"],
-    "SGBOCT27":["SGB Scheme 
-17-18","https://www.moneycontrol.com/india/stockpricequote/finance-investment/sovereigngoldbonds250oct2027sr-v2019-20/SGB19"]}
+sgbUrlDict = {"SGBAUG29":["SGB Scheme 21-22","https://www.moneycontrol.com/india/stockpricequote/finance-investment/sovereigngoldbonds250aug2029sr-v2021-22/SGB40"],
+    "SGBJUL25":["SGB Scheme 17-18","https://www.moneycontrol.com/india/stockpricequote/financeinvestments/sovereigngoldbonds250jul2025srii201718/SGB08"],
+    "SGBOCT27":["SGB Scheme 17-18","https://www.moneycontrol.com/india/stockpricequote/finance-investment/sovereigngoldbonds250oct2027sr-v2019-20/SGB19"]}
 
 """
 Function to read all the stock symbols from the input file, and, store them in a list.
@@ -69,8 +66,7 @@ details = "symbol,open,regularMarketOpen,regularMarketPreviousClose,fiftyTwoWeek
 refresh_time  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 with open(file_to_write,"w") as file:
-    file.write("symbol,price,regularMarketOpen,regularMarketPreviousClose,fiftyTwoWeekLow,fiftyTwoWeekHigh,shortName,longName,Refresh 
-Time"+"\n")
+    file.write("symbol,price,regularMarketOpen,regularMarketPreviousClose,fiftyTwoWeekLow,fiftyTwoWeekHigh,shortName,longName,Refresh Time"+"\n")
 
 ###Writing the output.
 with open(file_to_write,"a") as file:

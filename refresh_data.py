@@ -1,27 +1,19 @@
-import pandas as pd
-import logging, os
-from datetime import datetime
-import logging.handlers
-import pandas_datareader as pdr
 import yfinance as yf
+from datetime import datetime
+import concurrent.futures
+from loguru import logger
+import pandas as pd
+import os
 
-yf.pdr_override()
 
-### Set Logger ###
 basedir = os.path.dirname(os.path.abspath(__file__))
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logname = f"{basedir}/logs/refresh_data.log"
 
-format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s') 
+logger.remove()
+logger.add(logname, format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}",rotation="10 MB")
 
-logname = f"{basedir}/logs/yahoo_data_refresh.log"
-
-fileH = logging.handlers.RotatingFileHandler(logname, maxBytes=100000, backupCount=1)
-fileH.setFormatter(format)
-logger.addHandler(fileH)
-
-### All Variable Declaration ###
-symbols = []
+file_to_write = f"{basedir}/raw_stock_data.csv"
+stock_symbol_list = f"{basedir}/MyStocksSymbols.txt"
 
 sgbUrlDict = {"SGBAUG29":["SGB Scheme 
 21-22","https://www.moneycontrol.com/india/stockpricequote/finance-investment/sovereigngoldbonds250aug2029sr-v2021-22/SGB40"],
@@ -31,50 +23,95 @@ sgbUrlDict = {"SGBAUG29":["SGB Scheme
 17-18","https://www.moneycontrol.com/india/stockpricequote/finance-investment/sovereigngoldbonds250oct2027sr-v2019-20/SGB19"]}
 
 
-### Read the stock symbols, create a string for URL ###
-with open(f"/Users/ribhatia/Library/CloudStorage/OneDrive-Bhatia/Financial/MyStocks.txt","r") as myStocks:
-    for stock in myStocks:
-        symbols.append(stock.rstrip())
-
-logger.info("Getting the Quotes from YahooQuotesReader")
+symbols = []
 try:
-    df = 
-pdr.yahoo.quotes.YahooQuotesReader(symbols).read()[['price','regularMarketOpen','regularMarketPreviousClose','fiftyTwoWeekLow','fiftyTwoWeekHigh','shortName','longName']]
-    logger.info("Completed Getting the Quotes from YahooQuotesReader")
-except:
-    logger.exception("Error Occured.")
-    exit(100)
+    with open(stock_symbol_list,"r") as myStocks:
+        for stock in myStocks:
+            symbols.append(stock.rstrip())
+except Exception as e:
+    logger.error("Unable to open the file to read the stocks.")
+    exit(10)
 
-symbolsSeries = df.index.values
-df.insert(0,column="symbol",value=symbolsSeries)
+try:
+    tickers = yf.Tickers(" ".join(symbols))
+except Exception as e:
+    logger.exception("Unable to instantiate ticker object from Yahoo Tickers.")
+    exit(10)
+
+stock_info_list = []
+
+def get_stock_info(stock):
+    try:
+        stock_qoute = tickers.tickers[f"{stock}"].info
+        return stock_qoute
+
+    except Exception :
+        logger.debug(f"Error while getting details for the stock - {stock}")
+        return False
+
+maxworker = 50
+logger.info("Starting parallel API calls to get the stock data.")
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=maxworker) as executor:
+    all_quotes = executor.map(get_stock_info,symbols)
+stock_info_list = list(all_quotes)
+
+details = "symbol,open,regularMarketOpen,regularMarketPreviousClose,fiftyTwoWeekLow,fiftyTwoWeekHigh,shortName,longName".split(",")
+refresh_time  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+with open(file_to_write,"w") as file:
+    file.write("symbol,price,regularMarketOpen,regularMarketPreviousClose,fiftyTwoWeekLow,fiftyTwoWeekHigh,shortName,longName,Refresh 
+Time"+"\n")
+
+with open(file_to_write,"a") as file:
+    for stock_data in stock_info_list:
+        if stock_data:
+            for detail in details:
+                try:
+                    stringToWrite = str(stock_data[f"{detail}"]).replace(",","")
+                    file.write(stringToWrite+",")
+                except KeyError as KeyExcept :
+                    if detail == "longName":
+                        stringToWrite = str(stock_data["shortName"]).replace(",","")
+                        file.write(stringToWrite+",")
+                    else:
+                        logger.debug(f"Error for the key - {detail}, symbols - {stock_data['symbol']}")
+                        file.write(",")
+                    pass
+                except TypeError as TypeExp:
+                    logger.exception(f"Type Error Occured for stock - {stock}")
+                    pass
+                except Exception as Exp:
+                    logger.exception("Some Other Error Occured.")
+                    pass
+            file.write(refresh_time)
+            file.write("\n")
+        else:
+            pass
 
 ### Add the SGB Prices to the DF ###
-for symbol, url in sgbUrlDict.items():
-    try:
-        logger.info(f"Getting the SGB Data for {symbol}")
-        data = pd.read_html(url[1])
-        if symbol=="SGBAUG29":
-            try:
-                previos_close=float(data[2].iloc[1,1])
-                open=float(data[2].iloc[0,1])
-                F52WeekHigh = float(data[2].iloc[4,1])
-                F52WeekLow = float(data[2].iloc[5,1])
-            except:
-                pass
-        else:
-            previos_close=float(data[0].iloc[1,1])
-            open=float(data[0].iloc[0,1])
-            F52WeekHigh = float(data[1].iloc[4,1])
-            F52WeekLow = float(data[1].iloc[5,1])
-        df.loc[len(df.index)] =  [symbol,0,open,previos_close,F52WeekLow,F52WeekHigh,url[0],url[0]]
-    except:
-        logger.exception("Unable to get the SGB Data.")
+with open(file_to_write,"a") as file:
+    for symbol, url in sgbUrlDict.items():
+        try:
+            logger.info(f"Getting the SGB Data for {symbol}")
+            data = pd.read_html(url[1])
+            if symbol=="SGBAUG29":
+                try:
+                    previos_close=float(data[2].iloc[1,1])
+                    open=float(data[2].iloc[0,1])
+                    F52WeekHigh = float(data[2].iloc[4,1])
+                    F52WeekLow = float(data[2].iloc[5,1])
+                except:
+                    pass
+            else:
+                previos_close=float(data[0].iloc[1,1])
+                open=float(data[0].iloc[0,1])
+                F52WeekHigh = float(data[1].iloc[4,1])
+                F52WeekLow = float(data[1].iloc[5,1])
+            
+            file.write(f"{symbol},0,{open},{previos_close},{F52WeekLow},{F52WeekHigh},{url[0]},{url[0]},{refresh_time}")
+            file.write("\n")
+        except:
+            logger.exception("Unable to get the SGB Data.")
 
-df["Refresh Time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-### Finally, write the dataframe. ###
-try:
-    df.to_csv(f"{basedir}/raw_stock_data.csv",index=False)
-except:
-    logger.exception("Error Writing DF to file.")
-
-logger.info("---------Completed Refresh---------")
+logger.info("---------Completed Refresh---------\n\n")

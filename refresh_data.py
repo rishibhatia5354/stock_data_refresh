@@ -95,7 +95,7 @@ with open(file_to_write,"a") as file:
                         file.write(",")
                     pass
                 except TypeError as TypeExp:
-                    logger.exception(f"Type Error Occured for stock - {stock}")
+                    logger.exception(f"Type Error Occured for stock - {stock_data}")
                     pass
                 except Exception as Exp:
                     logger.exception("Some Other Error Occured.")

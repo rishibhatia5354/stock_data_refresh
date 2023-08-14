@@ -12,10 +12,9 @@ basedir = os.path.dirname(os.path.abspath(__file__))
 logname = f"{basedir}/logs/refresh_data.log"
 
 logger.remove()
-logger.add(logname, format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}",rotation="10 MB")
+logger.add(logname, format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}",rotation="100 KB")
 
 file_to_write = f"{basedir}/raw_stock_data.csv"
-stock_symbol_list = f"{basedir}/MyStocksSymbols.txt"
 
 sgbUrlDict = {"SGBAUG29":["SGB Scheme 21-22","https://www.moneycontrol.com/india/stockpricequote/finance-investment/sovereigngoldbonds250aug2029sr-v2021-22/SGB40"],
     "SGBJUL25":["SGB Scheme 17-18","https://www.moneycontrol.com/india/stockpricequote/financeinvestments/sovereigngoldbonds250jul2025srii201718/SGB08"],
@@ -26,12 +25,23 @@ Function to read all the stock symbols from the input file, and, store them in a
 """
 symbols = []
 try:
-    with open(stock_symbol_list,"r") as myStocks:
-        for stock in myStocks:
-            symbols.append(stock.rstrip())
-except Exception as e:
+    df = pd.read_excel("/Users/ribhatia/Library/CloudStorage/OneDrive-RishiBhatia/Financial/AllStockSheet.xlsx",\
+                  sheet_name="CMP_Stocks",usecols="I")
+    new = df.dropna()
+    symbols = new.MyStockSymbols.to_list()
+except:
     logger.error("Unable to open the file to read the stocks.")
     exit(10)
+
+# This was the old function to get the symbols from a separate file, changed now to get the details from the same excel.
+# stock_symbol_list = f"{basedir}/MyStocksSymbols.txt"
+# try:
+#     with open(stock_symbol_list,"r") as myStocks:
+#         for stock in myStocks:
+#             symbols.append(stock.rstrip())
+# except Exception as e:
+#     logger.error("Unable to open the file to read the stocks.")
+#     exit(10)
 
 try:
     ### Instantiate multiple tickers.
